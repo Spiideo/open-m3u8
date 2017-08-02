@@ -4,6 +4,8 @@ buildscript {
     }
 
     dependencies {
+        // AWS core for getting profile credentials
+        classpath "com.amazonaws:aws-java-sdk-core:1.10.+"
     }
 }
 
@@ -11,14 +13,43 @@ plugins {
     id 'net.saliman.cobertura' version '2.2.7'
 }
 
+ext {
+    try {
+        // Let the Amazon SDK load the credentials - this will work with
+        // both user profile credentials and instance profile credentials (e.g. for Jenkins)
+        def credentials = new com.amazonaws.auth.DefaultAWSCredentialsProviderChain().credentials
+        if(credentials) {
+            aws = [
+                    accessKey: credentials.getAWSAccessKeyId(),
+                    secretKey: credentials.getAWSSecretKey()
+            ]
+        }
+    } catch(Exception e) {
+        logger.warn "Could not determine AWS credentials: ${e.message}"
+        aws = [
+                accessKey: null,
+                secretKey: null
+        ]
+    }
+}
+
 repositories {
     mavenCentral()
+
+    // Our own private S3 repository
+    maven {
+        name "spiideoS3"
+        url "s3://spiideo-artifacts/"
+        credentials(AwsCredentials) {
+            accessKey aws.accessKey
+            secretKey aws.secretKey
+        }
+    }
 }
 
 apply plugin: 'java'
 apply plugin: 'idea'
-apply plugin: 'maven'
-apply plugin: 'signing'
+apply plugin: 'maven-publish'
 
 idea {
     module {
@@ -30,7 +61,7 @@ idea {
 group 'com.iheartradio.m3u8'
 archivesBaseName = 'open-m3u8'
 sourceCompatibility = 1.7
-version '0.2.6'
+version "0.2.6+${System.currentTimeSeconds()}"
 
 dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.11'
@@ -52,52 +83,20 @@ artifacts {
     archives javadocJar, sourcesJar
 }
 
-signing {
-    required { gradle.taskGraph.hasTask("uploadArchives") }
-    sign configurations.archives
-}
-
-uploadArchives {
-    repositories {
-        mavenDeployer {
-            beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
-
-            repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
-                authentication(userName: ossrhUsername, password: ossrhPassword)
-            }
-
-            snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
-                authentication(userName: ossrhUsername, password: ossrhPassword)
-            }
-
-            pom.project {
-                name 'Open M3U8'
-                packaging 'jar'
-                description 'An open source M3U8 playlist parser java library.'
-                url 'https://github.com/iheartradio/open-m3u8/'
-
-                scm {
-                    connection 'scm:git:https://github.com/iheartradio/open-m3u8.git/'
-                    developerConnection 'scm:git:https://github.com/iheartradio/open-m3u8.git/'
-                    url 'https://github.com/iheartradio/open-m3u8/'
-                }
-
-                licenses {
-                    license {
-                        name 'The MIT License'
-                        url 'http://opensource.org/licenses/MIT'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id 'iheartradio-oss'
-                        name 'Daniel Tashjian'
-                        email 'danieltashjian@iheartmedia.com'
-                    }
-                }
+publishing {
+    // Publish artifacts with Maven
+    publications {
+        maven(MavenPublication) {
+            from components.java
+            // The source JAR
+            artifact sourcesJar {
+                classifier "sources"
             }
         }
+    }
+    // Publish to our own S3 repository
+    repositories {
+        add project.repositories.spiideoS3
     }
 }
 
