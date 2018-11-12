@@ -104,7 +104,7 @@ final class Constants {
 
     public static final int[] UTF_8_BOM_BYTES = {0xEF, 0xBB, 0xBF};
     public static final char UNICODE_BOM = '\uFEFF';
-    public static final int MAX_COMPATIBILITY_VERSION = 5;
+    public static final int MAX_COMPATIBILITY_VERSION = 6;
     public static final int IV_SIZE = 16;
     //Against the spec but used by Adobe
     public static final int IV_SIZE_ALTERNATIVE = 32;
