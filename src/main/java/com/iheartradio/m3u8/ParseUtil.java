@@ -29,7 +29,7 @@ final class ParseUtil {
             throw ParseException.create(ParseExceptionType.NOT_JAVA_ENUM, tag, string);
         }
     }
-    
+
     public static String parseDateTime(String string, String tag) throws ParseException {
         Matcher matcher = Constants.EXT_X_PROGRAM_DATE_TIME_PATTERN.matcher(string);
 
@@ -54,9 +54,12 @@ final class ParseUtil {
 
         if (matcher.matches()) {
             String valueString = matcher.group(1);
+            if (valueString.length() % 2 != 0) {
+                throw ParseException.create(ParseExceptionType.INVALID_HEXADECIMAL_STRING, tag, hexString);
+            }
 
-            for (char c : valueString.toCharArray()) {
-                bytes.add(hexCharToByte(c));
+            for (int i = 0; i < valueString.length(); i += 2) {
+                bytes.add((byte)(Short.parseShort(valueString.substring(i, i+2), 16) & 0xFF));
             }
 
             return bytes;
@@ -64,7 +67,7 @@ final class ParseUtil {
             throw ParseException.create(ParseExceptionType.INVALID_HEXADECIMAL_STRING, tag, hexString);
         }
     }
-    
+
     private static byte hexCharToByte(char hex) {
         if (hex >= 'A') {
             return (byte) ((hex & 0xF) + 9);
@@ -183,7 +186,7 @@ final class ParseUtil {
                 //Even Apple playlists have sometimes spaces after a ,
                 final String name = string.substring(0, separator).trim();
                 final String value = string.substring(separator + 1);
-                
+
                 if (name.isEmpty()) {
                     throw ParseException.create(ParseExceptionType.MISSING_ATTRIBUTE_NAME, tag, attributes.toString());
                 }
